@@ -461,7 +461,7 @@ function VisionPayComplete() {
                         Officers: {officers.length} • Members: {members.length} • Radius: {settings.radius_km}km
                       </p>
                       <p className="map-note">
-                        Integrate with Leaflet or Google Maps for interactive map
+                        Integration bado
                       </p>
                     </div>
                   </div>
@@ -491,7 +491,7 @@ function VisionPayComplete() {
             )}
 
             {/* AI Insights Tab */}
-            {activeTab === 'ai' && (
+            {activeTab === 'Insights' && (
               <div>
                 <div className="ai-header">
                   <h2 className="section-title">AI-Powered Analysis</h2>
@@ -524,9 +524,9 @@ function VisionPayComplete() {
                           Overdue Rate: {zone.overdue_rate}% • {zone.members_count} members
                         </p>
                         <p className="zone-analysis-tip">
-                          {zone.risk_level === 'high' && '⚠️ Requires immediate attention. Increase officer visits.'}
-                          {zone.risk_level === 'medium' && '⚡ Monitor closely for trends.'}
-                          {zone.risk_level === 'low' && '✅ Safe zone. Maintain current schedule.'}
+                          {zone.risk_level === 'high' && ' Requires immediate attention. Increase officer visits.'}
+                          {zone.risk_level === 'medium' && ' Monitor closely for trends.'}
+                          {zone.risk_level === 'low' && ' Safe zone. Maintain current schedule.'}
                         </p>
                       </div>
                     ))}
