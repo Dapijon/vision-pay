@@ -659,3 +659,21 @@
 .button-secondary:hover {
     background-color: #f9fafb;
 }
+
+/* style.css additions */
+.map-container-leaflet {
+  height: 400px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+.map-instruction-banner {
+    padding: 10px;
+    background-color: #ffeaa7; /* Yellow for instruction */
+    color: #2d3436;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}

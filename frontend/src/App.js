@@ -1,12 +1,59 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Users, DollarSign, AlertTriangle, Calendar, Navigation, Plus, Save, TrendingUp, X } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Polyline, useMapEvents } from 'react-leaflet'; // New Leaflet imports
+import L from 'leaflet'; // For custom icons
+import 'leaflet/dist/leaflet.css'; // Import Leaflet CSS
 import './style.css'; // Import your CSS styles
+
 const JAC_API_URL = 'http://localhost:8000';
 
+// Custom icons for Leaflet (You should place corresponding images in your public folder)
+const officerIcon = new L.Icon({
+  iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  iconRetinaUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.4/images/marker-shadow.png',
+  shadowSize: [41, 41]
+});
+
+const memberIcon = new L.Icon({
+  iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  iconRetinaUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.4/images/marker-shadow.png',
+  shadowSize: [41, 41]
+});
+
+const overdueIcon = new L.Icon({
+  iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  iconRetinaUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.4/images/marker-shadow.png',
+  shadowSize: [41, 41]
+});
+
+// Component to handle map clicks for location setting
+function MapClickHandler({ setLocation }) {
+  const map = useMapEvents({
+    click: (e) => {
+      setLocation(e.latlng);
+    },
+  });
+  return null;
+}
+
+// Main App Component
 function VisionPayComplete() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddModal, setShowAddModal] = useState(null); // 'officer' or 'member'
-  
+  const [listeningForLocation, setListeningForLocation] = useState(null); // 'officer' or 'member' form is listening
+
   // Data states
   const [officers, setOfficers] = useState([]);
   const [members, setMembers] = useState([]);
@@ -39,7 +86,23 @@ function VisionPayComplete() {
     payday_frequency: 'weekly' // weekly, biweekly, monthly
   });
 
-  // Fetch all data
+  // Function to handle map click and set form location
+  const handleMapClickLocation = (latlng) => {
+    const lat = latlng.lat.toFixed(6);
+    const lng = latlng.lng.toFixed(6);
+
+    if (listeningForLocation === 'officer') {
+      setOfficerForm({ ...officerForm, latitude: lat, longitude: lng });
+      alert(`Officer location captured: ${lat}, ${lng}`);
+    } else if (listeningForLocation === 'member') {
+      setMemberForm({ ...memberForm, latitude: lat, longitude: lng });
+      alert(`Member location captured: ${lat}, ${lng}`);
+    }
+    setListeningForLocation(null);
+    setActiveTab('map'); // Stay on map to confirm location or switch back to forms if needed
+  };
+
+  // Fetch all data (Mock data removed as requested)
   const fetchAllData = async () => {
     try {
       // Fetch stats
@@ -58,6 +121,7 @@ function VisionPayComplete() {
         body: JSON.stringify({})
       });
       const officersData = await officersRes.json();
+      // Ensure data structure matches expectation even if empty
       setOfficers(Array.isArray(officersData) ? officersData : []);
 
       // Fetch members
@@ -80,37 +144,33 @@ function VisionPayComplete() {
 
     } catch (error) {
       console.error('Error fetching data:', error);
-      // Load mock data for demo
-      loadMockData();
+      // No mock data loaded - start will be empty as requested
     }
-  };
-
-  const loadMockData = () => {
-    setStats({
-      total_members: 4,
-      paid_today: 2,
-      overdue_members: 1,
-      total_collected: 1100,
-      collection_rate: 50
-    });
-    setOfficers([
-      { id: 1, name: 'John Kamau', location: { lat: -1.2921, lng: 36.8219 }, members_assigned: 45, collections_today: 12 },
-      { id: 2, name: 'Mary Njeri', location: { lat: -1.3012, lng: 36.8345 }, members_assigned: 38, collections_today: 15 },
-    ]);
-    setMembers([
-      { id: 1, name: 'Grace Wanjiku', amount: 500, payment_status: 'paid', officer_id: 1, location: { lat: -1.2921, lng: 36.8219 } },
-      { id: 2, name: 'David Mwangi', amount: 750, payment_status: 'pending', officer_id: 1, location: { lat: -1.2945, lng: 36.8267 } },
-      { id: 3, name: 'Sarah Akinyi', amount: 1000, payment_status: 'overdue', officer_id: 1, location: { lat: -1.2889, lng: 36.8201 } },
-    ]);
-    setRiskZones([
-      { zone_name: 'Kibera Zone A', risk_level: 'high', overdue_rate: 35, members_count: 23 },
-      { zone_name: 'Eastleigh Zone B', risk_level: 'medium', overdue_rate: 18, members_count: 41 },
-    ]);
   };
 
   useEffect(() => {
     fetchAllData();
   }, []);
+
+  // Auto-assign members
+  const handleAutoAssign = async () => {
+    try {
+      const response = await fetch(`${JAC_API_URL}/walker/AssignMembersToOfficers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          radius_km: settings.radius_km
+        })
+      });
+      const data = await response.json();
+      alert(`Auto-Assignment complete: Assigned ${data.assigned_count || 0} members within ${settings.radius_km}km radius.`);
+      console.log('Assignment results:', data);
+      await fetchAllData();
+    } catch (error) {
+      console.error('Error during auto-assignment:', error);
+      alert('Failed to run auto-assignment. Check console for details.');
+    }
+  };
 
   // Add officer
   const handleAddOfficer = async () => {
@@ -132,13 +192,17 @@ function VisionPayComplete() {
       });
       
       if (response.ok) {
-        alert('Officer added successfully!');
+        alert('Officer added successfully! Running auto-assignment...');
         setOfficerForm({ id: '', name: '', latitude: '', longitude: '' });
         setShowAddModal(null);
-        fetchAllData();
+        await fetchAllData();
+        await handleAutoAssign(); // Run assignment after adding
+      } else {
+         throw new Error(`API error: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Error adding officer:', error);
+      alert(`Failed to add officer: ${error.message}`);
     }
   };
 
@@ -165,33 +229,20 @@ function VisionPayComplete() {
       });
       
       if (response.ok) {
-        alert('Member added successfully!');
+        alert('Member added successfully! Running auto-assignment...');
         setMemberForm({ 
           id: '', name: '', latitude: '', longitude: '', 
           amount: '', payment_status: 'pending', officer_id: '', payment_date: '' 
         });
         setShowAddModal(null);
-        fetchAllData();
+        await fetchAllData();
+        await handleAutoAssign(); // Run assignment after adding
+      } else {
+         throw new Error(`API error: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Error adding member:', error);
-    }
-  };
-
-  // Auto-assign members
-  const handleAutoAssign = async () => {
-    try {
-      const response = await fetch(`${JAC_API_URL}/walker/AssignMembersToOfficers`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ radius_km: settings.radius_km })
-      });
-      const data = await response.json();
-      alert(`Assigned members within ${settings.radius_km}km. Check console for details.`);
-      console.log('Assignment results:', data);
-      fetchAllData();
-    } catch (error) {
-      console.error('Error:', error);
+      alert(`Failed to add member: ${error.message}`);
     }
   };
 
@@ -205,8 +256,14 @@ function VisionPayComplete() {
       });
       const data = await response.json();
       setSelectedRoute(data);
+      if (data.route && data.route.length > 0) {
+        setActiveTab('map'); // Switch to map to view the route
+      } else {
+        alert('No route data returned. Check officer assignment.');
+      }
     } catch (error) {
       console.error('Error:', error);
+      alert('Failed to get optimized route.');
     }
   };
 
@@ -221,28 +278,16 @@ function VisionPayComplete() {
       const data = await response.json();
       setAiInsights(data.summary || 'No insights available');
     } catch (error) {
-      setAiInsights('AI analysis: Based on current data, focus on high-risk zones with >25% overdue rates. Increase officer visits in Kibera Zone A.');
+      setAiInsights('Failed to connect to AI analysis backend. Please check JAC service status.');
     }
   };
 
-  // Get current location
-  const getCurrentLocation = (formType) => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude.toFixed(6);
-          const lng = position.coords.longitude.toFixed(6);
-          
-          if (formType === 'officer') {
-            setOfficerForm({ ...officerForm, latitude: lat, longitude: lng });
-          } else {
-            setMemberForm({ ...memberForm, latitude: lat, longitude: lng });
-          }
-          alert(`Location captured: ${lat}, ${lng}`);
-        },
-        () => alert('Error getting location')
-      );
-    }
+  // Function to start listening for map clicks for location
+  const startLocationListener = (formType) => {
+    setListeningForLocation(formType);
+    setShowAddModal(null); // Close the modal
+    setActiveTab('map'); // Switch to map tab
+    alert('Click on the map to set the location for the new ' + formType + '.');
   };
 
   // Record payment
@@ -264,10 +309,19 @@ function VisionPayComplete() {
       }
     } catch (error) {
       console.error('Error:', error);
+      alert('Failed to record payment.');
     }
   };
 
   const displayStats = stats || { total_members: 0, paid_today: 0, overdue_members: 0, total_collected: 0 };
+  
+  // Calculate map center - use a default (Nairobi) if no data, or center on the first officer
+  const defaultCenter = [-1.286389, 36.817223]; 
+  const mapCenter = officers.length > 0 && officers[0].location?.lat && officers[0].location?.lng
+    ? [officers[0].location.lat, officers[0].location.lng]
+    : defaultCenter;
+
+  const routeCoordinates = selectedRoute?.route?.map(stop => [stop.member?.location?.lat, stop.member?.location?.lng]) || [];
 
   return (
     <div className="app-container">
@@ -409,6 +463,11 @@ function VisionPayComplete() {
                           <span className="text-gray">{stop.distance_km} km</span>
                         </div>
                       ))}
+                      {selectedRoute.route?.length > 5 && (
+                          <div className="route-stop-item">
+                            <span>... and {selectedRoute.route.length - 5} more stops</span>
+                          </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -448,23 +507,77 @@ function VisionPayComplete() {
               </div>
             )}
 
-            {/* Map View Tab */}
+            {/* Map View Tab (New Leaflet Integration) */}
             {activeTab === 'map' && (
               <div>
                 <h2 className="section-title">Geographic View</h2>
-                <div className="map-placeholder">
-                  <div className="map-placeholder-inner">
-                    <div>
-                      <MapPin size={48} className="icon-map" />
-                      <p className="map-text">Map visualization showing officers and members</p>
-                      <p className="map-subtext">
-                        Officers: {officers.length} • Members: {members.length} • Radius: {settings.radius_km}km
-                      </p>
-                      <p className="map-note">
-                        Integration bado
-                      </p>
+                
+                {listeningForLocation && (
+                    <div className="map-instruction-banner">
+                        <MapPin size={20} className="inline-icon" />
+                        **ACTION REQUIRED:** Click on the map to set the location for the new {listeningForLocation}.
                     </div>
-                  </div>
+                )}
+
+                <div className="map-container-leaflet">
+                  <MapContainer 
+                    center={mapCenter} 
+                    zoom={13} 
+                    scrollWheelZoom={true}
+                    style={{ height: '400px', width: '100%' }}
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    
+                    {/* The click handler is only active when a form is listening */}
+                    {listeningForLocation && <MapClickHandler setLocation={handleMapClickLocation} />}
+
+                    {/* Officer Markers */}
+                    {officers.map(officer => (
+                      <Marker 
+                        key={`officer-${officer.id}`} 
+                        position={[officer.location.lat, officer.location.lng]} 
+                        icon={officerIcon}
+                      >
+                        <L.Popup>
+                          **Officer: {officer.name}**
+                          <br />Assigned Members: {officer.members_assigned}
+                        </L.Popup>
+                      </Marker>
+                    ))}
+                    
+                    {/* Member Markers */}
+                    {members.map(member => {
+                      let icon = memberIcon;
+                      if (member.payment_status === 'overdue') {
+                        icon = overdueIcon;
+                      }
+
+                      return (
+                        <Marker 
+                          key={`member-${member.id}`} 
+                          position={[member.location.lat, member.location.lng]} 
+                          icon={icon}
+                        >
+                          <L.Popup>
+                            **Member: {member.name}**
+                            <br />Amount: KES {member.amount?.toLocaleString()}
+                            <br />Status: {member.payment_status?.toUpperCase()}
+                          </L.Popup>
+                        </Marker>
+                      );
+                    })}
+                    
+                    {/* Optimized Route Polyline */}
+                    {routeCoordinates.length > 0 && (
+                        <Polyline 
+                          pathOptions={{ color: 'blue', weight: 4, opacity: 0.7 }} 
+                          positions={routeCoordinates} 
+                        />
+                    )}
+                  </MapContainer>
                 </div>
 
                 <div className="risk-zones-grid">
@@ -479,7 +592,7 @@ function VisionPayComplete() {
                   </div>
                   <div className="risk-zone-card high">
                     <h3 className="risk-zone-title text-red">High Risk Zones</h3>
-                    {riskZones.filter(z => z.risk_level === 'high').map((zone, i) => (
+                    {riskZones.filter(z => z.risk_level === 'high' || z.risk_level === 'medium').map((zone, i) => (
                       <div key={i} className="zone-item">
                         <p className="zone-name">{zone.zone_name}</p>
                         <p className="zone-details">{zone.overdue_rate}% overdue • {zone.members_count} members</p>
@@ -491,7 +604,7 @@ function VisionPayComplete() {
             )}
 
             {/* AI Insights Tab */}
-            {activeTab === 'Insights' && (
+            {activeTab === 'ai' && (
               <div>
                 <div className="ai-header">
                   <h2 className="section-title">AI-Powered Analysis</h2>
@@ -544,7 +657,7 @@ function VisionPayComplete() {
                   <div className="setting-card">
                     <h3 className="setting-title">Assignment Radius</h3>
                     <p className="setting-description">
-                      Members within {settings.radius_km}km of an officer will be assigned to that officer
+                      Members within **{settings.radius_km}km** of an officer's assigned area will be auto-assigned.
                     </p>
                     <div className="setting-slider-group">
                       <input
@@ -569,7 +682,7 @@ function VisionPayComplete() {
                   <div className="setting-card">
                     <h3 className="setting-title">Payment Schedule</h3>
                     <p className="setting-description">
-                      Members in the same {settings.radius_km}km zone share the same payment date
+                      Schedule for payment collection notices and officer deployment planning.
                     </p>
                     <select
                       value={settings.payday_frequency}
@@ -639,7 +752,8 @@ function VisionPayComplete() {
                     value={officerForm.latitude}
                     onChange={(e) => setOfficerForm({ ...officerForm, latitude: e.target.value })}
                     className="input-field"
-                    placeholder="-1.2921"
+                    placeholder="Click on Map"
+                    readOnly 
                   />
                 </div>
                 <div className="input-group">
@@ -650,17 +764,18 @@ function VisionPayComplete() {
                     value={officerForm.longitude}
                     onChange={(e) => setOfficerForm({ ...officerForm, longitude: e.target.value })}
                     className="input-field"
-                    placeholder="36.8219"
+                    placeholder="Click on Map"
+                    readOnly
                   />
                 </div>
               </div>
 
               <button
-                onClick={() => getCurrentLocation('officer')}
+                onClick={() => startLocationListener('officer')}
                 className="button button-blue w-full-flex"
               >
                 <MapPin size={20} />
-                Use My Current Location
+                Select Location on Map
               </button>
             </div>
             
@@ -674,6 +789,7 @@ function VisionPayComplete() {
               <button
                 onClick={handleAddOfficer}
                 className="button-flex button-green"
+                disabled={!officerForm.latitude || !officerForm.longitude}
               >
                 <Save size={20} />
                 Save Officer
@@ -726,7 +842,8 @@ function VisionPayComplete() {
                     value={memberForm.latitude}
                     onChange={(e) => setMemberForm({ ...memberForm, latitude: e.target.value })}
                     className="input-field"
-                    placeholder="-1.2945"
+                    placeholder="Click on Map"
+                    readOnly
                   />
                 </div>
                 <div className="input-group">
@@ -737,7 +854,8 @@ function VisionPayComplete() {
                     value={memberForm.longitude}
                     onChange={(e) => setMemberForm({ ...memberForm, longitude: e.target.value })}
                     className="input-field"
-                    placeholder="36.8267"
+                    placeholder="Click on Map"
+                    readOnly
                   />
                 </div>
               </div>
@@ -776,11 +894,11 @@ function VisionPayComplete() {
                 </div>
               </div>
               <button
-                onClick={() => getCurrentLocation('member')}
+                onClick={() => startLocationListener('member')}
                 className="button button-blue w-full-flex"
               >
                 <MapPin size={20} />
-                Use My Current Location
+                Select Location on Map
               </button>
             </div>
             
@@ -794,6 +912,7 @@ function VisionPayComplete() {
               <button
                 onClick={handleAddMember}
                 className="button-flex button-green"
+                disabled={!memberForm.latitude || !memberForm.longitude}
               >
                 <Save size={20} />
                 Save Member
