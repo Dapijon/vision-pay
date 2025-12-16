@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Users, DollarSign, AlertTriangle, Calendar, Navigation, Plus, Save, TrendingUp, X } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Polyline, useMapEvents } from 'react-leaflet'; // New Leaflet imports
-import L from 'leaflet'; // For custom icons
-import 'leaflet/dist/leaflet.css'; // Import Leaflet CSS
-import './style.css'; // Import your CSS styles
+import L from 'leaflet'; 
+import 'leaflet/dist/leaflet.css';
+import './style.css'; 
 
 const JAC_API_URL = 'http://localhost:8000';
 
